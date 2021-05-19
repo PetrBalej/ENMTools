@@ -85,10 +85,10 @@ enmtools.maxent <- function(species, env, test.prop = 0, nback = 1000, env.nback
 
   if(verbose){
     this.mx <- dismo::maxent(env, p = analysis.df[analysis.df$presence == 1,1:2], a = analysis.df[analysis.df$presence == 0,1:2], ...)
-    suitability <- predict(env, this.mx, type = "response")
+    suitability <- rmaxent::project(this.mx, env)$prediction_cloglog
   } else {
     invisible(capture.output(this.mx <- dismo::maxent(env, p = analysis.df[analysis.df$presence == 1,1:2], a = analysis.df[analysis.df$presence == 0,1:2], ...)))
-    invisible(capture.output(suitability <- predict(env, this.mx, type = "response")))
+    invisible(capture.output(suitability <- rmaxent::project(this.mx, env)$prediction_cloglog))
   }
 
   # Clamping and getting a diff layer
@@ -100,9 +100,9 @@ enmtools.maxent <- function(species, env, test.prop = 0, nback = 1000, env.nback
     env <- clamp.env(this.df, env)
 
     if(verbose){
-      clamped.suitability <- predict(env, this.mx, type = "response")
+      clamped.suitability <- rmaxent::project(this.mx, env)$prediction_cloglog
     } else {
-      invisible(capture.output(clamped.suitability <- predict(env, this.mx, type = "response")))
+      invisible(capture.output(clamped.suitability <- rmaxent::project(this.mx, env)$prediction_cloglog))
     }
 
     clamping.strength <- clamped.suitability - suitability
@@ -134,10 +134,14 @@ enmtools.maxent <- function(species, env, test.prop = 0, nback = 1000, env.nback
         test.evaluation <-dismo::evaluate(test.data, species$background.points[,1:2],
                                           this.mx, env)
         env.test.evaluation <- env.evaluate(temp.sp, this.mx, env, n.background = env.nback)
+        thr <- dismo::threshold(test.evaluation)
+        conf <- test.evaluation@confusion[which.max(test.evaluation@t >= thr$spec_sens),]
       } else {
         invisible(capture.output(test.evaluation <-dismo::evaluate(test.data, species$background.points[,1:2],
                                           this.mx, env)))
         invisible(capture.output(env.test.evaluation <- env.evaluate(temp.sp, this.mx, env, n.background = env.nback)))
+        invisible(thr <- dismo::threshold(test.evaluation))
+        invisible(conf <- test.evaluation@confusion[test.evaluation@confusion[which.max(test.evaluation@t >= thr$spec_sens)],])
       }
 
     }
@@ -333,6 +337,7 @@ enmtools.maxent <- function(species, env, test.prop = 0, nback = 1000, env.nback
                  test.data = test.data,
                  test.prop = test.prop,
                  model = this.mx,
+                 conf = conf,
                  training.evaluation = model.evaluation,
                  test.evaluation = test.evaluation,
                  env.training.evaluation = env.model.evaluation,
@@ -377,6 +382,9 @@ summary.enmtools.maxent <- function(object, ...){
 
   cat("\n\nModel:  ")
   print(summary(object$model))
+
+  cat("\n\nConfusion matrix:  ")
+  print(summary(object$threshold))
 
   cat("\n\nModel fit (training data):  ")
   print(object$training.evaluation)
@@ -448,7 +456,7 @@ plot.enmtools.maxent <- function(x, ...){
 predict.enmtools.maxent <- function(object, env, maxpts = 1000, clamp = TRUE, ...){
 
   # Make a plot of habitat suitability in the new region
-  suitability <- invisible(capture.output(raster::predict(env, object$model)))
+  suitability <- invisible(capture.output(rmaxent::project(object$model, env)$prediction_cloglog))
 
   # I'm actually not sure this is doing anything - I think maxent models are clamped by default
   if(clamp == TRUE){
@@ -456,7 +464,7 @@ predict.enmtools.maxent <- function(object, env, maxpts = 1000, clamp = TRUE, ..
     this.df <- as.data.frame(rbind(object$model@presence, object$model@absence))
 
     env <- clamp.env(this.df, env)
-    clamped.suitability <- invisible(capture.output(raster::predict(env, object$model)))
+    clamped.suitability <- invisible(capture.output(rmaxent::project(object$model, env)$prediction_cloglog))
     clamping.strength <- clamped.suitability - suitability
     suitability <- clamped.suitability
   }

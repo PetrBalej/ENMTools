@@ -140,6 +140,8 @@ enmtools.glm <- function(species, env, f = NULL, test.prop = 0, eval = TRUE, nba
         test.data <- test.data[complete.cases(test.check),]
         test.evaluation <-dismo::evaluate(test.data, species$background.points[,1:2],
                                           this.glm, env)
+        thr <- dismo::threshold(test.evaluation)
+        conf <- test.evaluation@confusion[which.max(test.evaluation@t >= thr$spec_sens),]
         temp.sp <- species
         temp.sp$presence.points <- test.data
         env.test.evaluation <- env.evaluate(temp.sp, this.glm, env, n.background = env.nback)
@@ -315,6 +317,7 @@ enmtools.glm <- function(species, env, f = NULL, test.prop = 0, eval = TRUE, nba
                  test.data = test.data,
                  test.prop = test.prop,
                  model = this.glm,
+                 conf = conf,
                  training.evaluation = model.evaluation,
                  test.evaluation = test.evaluation,
                  env.training.evaluation = env.model.evaluation,
@@ -367,6 +370,9 @@ summary.enmtools.glm <- function(object, ...){
 
   cat("\n\nModel:  ")
   print(summary(object$model))
+
+  cat("\n\nConfusion matrix:  ")
+  print(summary(object$threshold))
 
   cat("\n\nModel fit (training data):  ")
   print(object$training.evaluation)

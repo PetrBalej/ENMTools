@@ -20,7 +20,10 @@ background.buffer <- function(points, buffer.width, buffer.type = "circles", mas
   pol <- NA
 
   if(buffer.type == "circles"){
-    x <- circles(points, d=buffer.width, lonlat=TRUE)
+    # lonlat=TRUE not works with non geographic coordinates (e.g. https://epsg.io/3035)
+    # simple hack, probably not universal...
+    ll <- if(max(points[,1]) <= 180) TRUE else FALSE
+    x <- circles(points, d=buffer.width, lonlat=ll)
     pol <- rgeos::gUnaryUnion(x@polygons)
   }
 
