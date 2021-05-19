@@ -318,6 +318,7 @@ enmtools.glm <- function(species, env, f = NULL, test.prop = 0, eval = TRUE, nba
                  test.prop = test.prop,
                  model = this.glm,
                  conf = conf,
+                 thr = thr,
                  training.evaluation = model.evaluation,
                  test.evaluation = test.evaluation,
                  env.training.evaluation = env.model.evaluation,

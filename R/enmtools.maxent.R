@@ -338,6 +338,7 @@ enmtools.maxent <- function(species, env, test.prop = 0, nback = 1000, env.nback
                  test.prop = test.prop,
                  model = this.mx,
                  conf = conf,
+                 thr = thr,
                  training.evaluation = model.evaluation,
                  test.evaluation = test.evaluation,
                  env.training.evaluation = env.model.evaluation,
