@@ -131,10 +131,6 @@ enmtools.glm <- function(species, env, f = NULL, test.prop = 0, eval = TRUE, nba
 
     model.evaluation <-dismo::evaluate(species$presence.points[,1:2], species$background.points[,1:2],
                                        this.glm, env)
-      thr <- dismo::threshold(model.evaluation)
-      conf <- model.evaluation@confusion[which.max(model.evaluation@t >= thr$spec_sens),]
-      conf2 <- model.evaluation@confusion[which.max(model.evaluation@t >= thr$no_omission),]
-
     env.model.evaluation <- env.evaluate(species, this.glm, env, n.background = env.nback)
 
     # Test eval for randomly withheld data
@@ -144,6 +140,8 @@ enmtools.glm <- function(species, env, f = NULL, test.prop = 0, eval = TRUE, nba
         test.data <- test.data[complete.cases(test.check),]
         test.evaluation <-dismo::evaluate(test.data, species$background.points[,1:2],
                                           this.glm, env)
+        thr <- dismo::threshold(test.evaluation)
+        conf <- test.evaluation@confusion[which.max(test.evaluation@t >= thr$spec_sens),]
         temp.sp <- species
         temp.sp$presence.points <- test.data
         env.test.evaluation <- env.evaluate(temp.sp, this.glm, env, n.background = env.nback)
@@ -320,7 +318,6 @@ enmtools.glm <- function(species, env, f = NULL, test.prop = 0, eval = TRUE, nba
                  test.prop = test.prop,
                  model = this.glm,
                  conf = conf,
-                 conf2 = conf2,
                  thr = thr,
                  training.evaluation = model.evaluation,
                  test.evaluation = test.evaluation,
