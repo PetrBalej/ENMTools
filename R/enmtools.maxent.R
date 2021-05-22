@@ -112,6 +112,10 @@ enmtools.maxent <- function(species, env, test.prop = 0, nback = 1000, env.nback
   if(verbose){
     model.evaluation <-dismo::evaluate(species$presence.points[,1:2], species$background.points[,1:2],
                                        this.mx, env)
+    thr <- dismo::threshold(model.evaluation)
+    conf <- model.evaluation@confusion[which.max(model.evaluation@t >= thr$spec_sens),]
+    conf2 <- model.evaluation@confusion[which.max(model.evaluation@t >= thr$no_omission),]
+
     env.model.evaluation <- env.evaluate(species, this.mx, env, n.background = env.nback)
 
   } else {
@@ -119,6 +123,9 @@ enmtools.maxent <- function(species, env, test.prop = 0, nback = 1000, env.nback
                                        this.mx, env)))
     invisible(capture.output(env.model.evaluation <- env.evaluate(species, this.mx, env, n.background = env.nback)))
 
+    invisible(capture.output(thr <- dismo::threshold(model.evaluation)))
+    invisible(capture.output(conf <- model.evaluation@confusion[model.evaluation@confusion[which.max(model.evaluation@t >= thr$spec_sens)],]))
+    invisible(capture.output(conf <- model.evaluation@confusion[model.evaluation@confusion[which.max(model.evaluation@t >= thr$no_omission)],]))
   }
 
   # Test eval for randomly withheld data
@@ -134,14 +141,10 @@ enmtools.maxent <- function(species, env, test.prop = 0, nback = 1000, env.nback
         test.evaluation <-dismo::evaluate(test.data, species$background.points[,1:2],
                                           this.mx, env)
         env.test.evaluation <- env.evaluate(temp.sp, this.mx, env, n.background = env.nback)
-        thr <- dismo::threshold(test.evaluation)
-        conf <- test.evaluation@confusion[which.max(test.evaluation@t >= thr$spec_sens),]
       } else {
         invisible(capture.output(test.evaluation <-dismo::evaluate(test.data, species$background.points[,1:2],
                                           this.mx, env)))
         invisible(capture.output(env.test.evaluation <- env.evaluate(temp.sp, this.mx, env, n.background = env.nback)))
-        invisible(thr <- dismo::threshold(test.evaluation))
-        invisible(conf <- test.evaluation@confusion[test.evaluation@confusion[which.max(test.evaluation@t >= thr$spec_sens)],])
       }
 
     }
@@ -338,6 +341,7 @@ enmtools.maxent <- function(species, env, test.prop = 0, nback = 1000, env.nback
                  test.prop = test.prop,
                  model = this.mx,
                  conf = conf,
+                 conf2 = conf2,
                  thr = thr,
                  training.evaluation = model.evaluation,
                  test.evaluation = test.evaluation,

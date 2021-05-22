@@ -100,7 +100,7 @@ enmtools.glm <- function(species, env, f = NULL, test.prop = 0, eval = TRUE, nba
     weights <- rep(1, nrow(species$presence.points) + nrow(species$background.points))
   }
 
-  this.glm <- glm(f, na.omit(analysis.df[,-c(1,2)]), family="binomial", weights = weights, ...)
+  this.glm <- glm(f, analysis.df[,-c(1,2)], family="binomial", weights = weights, ...)
 
 
   if(as.integer(this.glm$aic) == 2 * length(this.glm$coefficients)){
@@ -131,6 +131,10 @@ enmtools.glm <- function(species, env, f = NULL, test.prop = 0, eval = TRUE, nba
 
     model.evaluation <-dismo::evaluate(species$presence.points[,1:2], species$background.points[,1:2],
                                        this.glm, env)
+      thr <- dismo::threshold(model.evaluation)
+      conf <- model.evaluation@confusion[which.max(model.evaluation@t >= thr$spec_sens),]
+      conf2 <- model.evaluation@confusion[which.max(model.evaluation@t >= thr$no_omission),]
+
     env.model.evaluation <- env.evaluate(species, this.glm, env, n.background = env.nback)
 
     # Test eval for randomly withheld data
@@ -140,8 +144,6 @@ enmtools.glm <- function(species, env, f = NULL, test.prop = 0, eval = TRUE, nba
         test.data <- test.data[complete.cases(test.check),]
         test.evaluation <-dismo::evaluate(test.data, species$background.points[,1:2],
                                           this.glm, env)
-        thr <- dismo::threshold(test.evaluation)
-        conf <- test.evaluation@confusion[which.max(test.evaluation@t >= thr$spec_sens),]
         temp.sp <- species
         temp.sp$presence.points <- test.data
         env.test.evaluation <- env.evaluate(temp.sp, this.glm, env, n.background = env.nback)
@@ -219,7 +221,7 @@ enmtools.glm <- function(species, env, f = NULL, test.prop = 0, eval = TRUE, nba
 
         rts.df <- rbind(rep.species$presence.points, rep.species$background.points)
         rts.df$presence <- c(rep(1, nrow(rep.species$presence.points)), rep(0, nrow(rep.species$background.points)))
-        thisrep.glm <- glm(f, na.omit(rts.df[,-c(1,2)]), family="binomial", ...)
+        thisrep.glm <- glm(f, rts.df[,-c(1,2)], family="binomial", ...)
 
         thisrep.model.evaluation <-dismo::evaluate(rep.species$presence.points[,1:2], species$background.points[,1:2],
                                                    thisrep.glm, env)
@@ -318,6 +320,7 @@ enmtools.glm <- function(species, env, f = NULL, test.prop = 0, eval = TRUE, nba
                  test.prop = test.prop,
                  model = this.glm,
                  conf = conf,
+                 conf2 = conf2,
                  thr = thr,
                  training.evaluation = model.evaluation,
                  test.evaluation = test.evaluation,
