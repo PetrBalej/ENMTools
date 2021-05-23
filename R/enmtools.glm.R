@@ -372,9 +372,6 @@ summary.enmtools.glm <- function(object, ...){
   cat("\n\nModel:  ")
   print(summary(object$model))
 
-  cat("\n\nConfusion matrix:  ")
-  print(summary(object$threshold))
-
   cat("\n\nModel fit (training data):  ")
   print(object$training.evaluation)
 

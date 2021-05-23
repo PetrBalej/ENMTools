@@ -20,7 +20,7 @@ LazyData: TRUE
 RoxygenNote: 7.1.1
 Imports: rgeos, knitr, ggplot2, gridExtra, lhs, magrittr, ENMeval, sp,
         spatstat.geom, spatstat.core, spatstat (>= 2.0-0), ggpubr, rgdal, forcats
-Depends: raster, dismo, rmaxent
+Depends: raster, dismo
 Suggests: testthat, hypervolume, leaflet, mgcv, ecospat, randomForest,
         ranger, caret, CalibratR, ape, ResourceSelection, 
         fields, reshape2, vip, pdp, fastshap, viridis, progress

@@ -73,7 +73,7 @@ enmtools.vip <- function(model, metric = "auc", nsim = 10, method = "permute", .
     train$presence <- c(rep(1, nrow(attr(thismodel, "presence"))),
                         rep(0, nrow(attr(thismodel, "absence"))))
     target <- "presence"
-    pred_wrapper <- function(object, newdata) rmaxent::project(object, newdata)$prediction_cloglog
+    pred_wrapper <- function(object, newdata) predict(object, newdata)
     reference_class <- "1"
   }
 
