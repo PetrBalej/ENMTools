@@ -161,10 +161,14 @@ enmtools.maxent <- function(species, env, test.prop = 0, nback = 1000, env.nback
         test.evaluation <-dismo::evaluate(test.data, test.bg,
                                           this.mx, env)
         env.test.evaluation <- env.evaluate(temp.sp, this.mx, env, n.background = env.nback)
+        thr <- dismo::threshold(test.evaluation)
+        conf <- test.evaluation@confusion[which.max(test.evaluation@t >= thr$spec_sens),]
       } else {
         invisible(capture.output(test.evaluation <-dismo::evaluate(test.data, test.bg,
                                           this.mx, env)))
         invisible(capture.output(env.test.evaluation <- env.evaluate(temp.sp, this.mx, env, n.background = env.nback)))
+        invisible(capture.output(thr <- dismo::threshold(test.evaluation)))
+        invisible(capture.output(conf <- test.evaluation@confusion[test.evaluation@confusion[which.max(test.evaluation@t >= thr$spec_sens)],]))
       }
 
     }
