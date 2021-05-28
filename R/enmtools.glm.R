@@ -66,6 +66,8 @@ enmtools.glm <- function(species, env, f = NULL, test.prop = 0, eval = TRUE, nba
       } else if(corner < 1 | corner > 4){
         stop("corner should be an integer from 1 to 4!")
       }
+      # how to detect checkerboard2 call?
+      # test.inds <- get.checkerboard2(species$presence.points, bias, species$background.points, c(2,2))
       test.inds <- get.block(species$presence.points, species$background.points)
       test.bg.inds <- which(test.inds$bg.grp == corner)
       test.inds <- which(test.inds$occ.grp == corner)
