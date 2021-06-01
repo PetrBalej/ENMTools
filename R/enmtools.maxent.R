@@ -54,13 +54,18 @@ enmtools.maxent <- function(species, env, test.prop = 0, nback = 1000, env.nback
 
   # Code for spatially structured test data
   if(is.character(test.prop)){
-    if(test.prop == "block"){
+    if(test.prop == "block" | test.prop == "checkerboard2"){
       if(is.na(corner)){
         corner <- ceiling(runif(1, 0, 4))
       } else if(corner < 1 | corner > 4){
         stop("corner should be an integer from 1 to 4!")
       }
-      test.inds <- get.block(species$presence.points, species$background.points)
+      if(test.prop == "block"){
+        test.inds <- get.block(species$presence.points, species$background.points)
+      }
+      if(test.prop == "checkerboard2"){
+        test.inds <- get.checkerboard2(species$presence.points, bias, species$background.points, c(2,2))
+      }
       test.bg.inds <- which(test.inds$bg.grp == corner)
       test.inds <- which(test.inds$occ.grp == corner)
       test.data <- species$presence.points[test.inds,]
@@ -149,7 +154,7 @@ enmtools.maxent <- function(species, env, test.prop = 0, nback = 1000, env.nback
 
   # Test eval for spatially structured data
   if(is.character(test.prop)){
-    if(test.prop == "block"){
+    if(test.prop == "block" | test.prop == "checkerboard2"){
       test.check <- raster::extract(env, test.data)
       test.data <- test.data[complete.cases(test.check),]
 
