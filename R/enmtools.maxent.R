@@ -28,7 +28,7 @@
 #' }
 
 
-enmtools.maxent <- function(species, env, test.prop = 0, nback = 1000, env.nback = 10000, report = NULL, overwrite = FALSE, rts.reps = 0,  bg.source = "default", verbose = FALSE, clamp = TRUE,  corner = NA, bias = NA, ...){
+enmtools.maxent <- function(species, env, test.prop = 0, eval = TRUE, nback = 1000, env.nback = 10000, report = NULL, overwrite = FALSE, rts.reps = 0,  bg.source = "default", verbose = FALSE, clamp = TRUE,  corner = NA, bias = NA, ...){
 
   check.packages("rJava")
 
@@ -39,9 +39,13 @@ enmtools.maxent <- function(species, env, test.prop = 0, nback = 1000, env.nback
   maxent.precheck(f, species, env)
 
   test.data <- NA
+  model.evaluation <- NA
+  env.model.evaluation <- NA
   test.evaluation <- NA
   env.test.evaluation <- NA
   rts.test <- NA
+  conf <- NA
+  thr <- NA
 
   # Code for randomly withheld test data
   if(is.numeric(test.prop)){
@@ -98,249 +102,250 @@ enmtools.maxent <- function(species, env, test.prop = 0, nback = 1000, env.nback
 
   # Clamping and getting a diff layer
   clamping.strength <- NA
-  if(clamp == TRUE){
-    # Adding env (skipped for MX otherwise)
-    this.df <- as.data.frame(extract(env, species$presence.points))
 
-    env <- clamp.env(this.df, env)
+  if(eval == TRUE){
+    if(clamp == TRUE){
+      # Adding env (skipped for MX otherwise)
+      this.df <- as.data.frame(extract(env, species$presence.points))
+
+      env <- clamp.env(this.df, env)
+
+      if(verbose){
+        clamped.suitability <- predict(env, this.mx, type = "response")
+      } else {
+        invisible(capture.output(clamped.suitability <- predict(env, this.mx, type = "response")))
+      }
+
+      clamping.strength <- clamped.suitability - suitability
+      suitability <- clamped.suitability
+    }
 
     if(verbose){
-      clamped.suitability <- predict(env, this.mx, type = "response")
+      model.evaluation <-dismo::evaluate(species$presence.points[,1:2], species$background.points[,1:2],
+                                        this.mx, env)
+      env.model.evaluation <- env.evaluate(species, this.mx, env, n.background = env.nback)
+
     } else {
-      invisible(capture.output(clamped.suitability <- predict(env, this.mx, type = "response")))
-    }
-
-    clamping.strength <- clamped.suitability - suitability
-    suitability <- clamped.suitability
-  }
-
-  if(verbose){
-    model.evaluation <-dismo::evaluate(species$presence.points[,1:2], species$background.points[,1:2],
-                                       this.mx, env)
-    env.model.evaluation <- env.evaluate(species, this.mx, env, n.background = env.nback)
-
-  } else {
-    invisible(capture.output(model.evaluation <-dismo::evaluate(species$presence.points[,1:2], species$background.points[,1:2],
-                                       this.mx, env)))
-    invisible(capture.output(env.model.evaluation <- env.evaluate(species, this.mx, env, n.background = env.nback)))
-
-  }
-
-  # Test eval for randomly withheld data
-  if(is.numeric(test.prop)){
-    if(test.prop > 0 & test.prop < 1){
-      test.check <- raster::extract(env, test.data)
-      test.data <- test.data[complete.cases(test.check),]
-
-      temp.sp <- species
-      temp.sp$presence.points <- test.data
-
-      if(verbose){
-        test.evaluation <-dismo::evaluate(test.data, species$background.points[,1:2],
-                                          this.mx, env)
-        env.test.evaluation <- env.evaluate(temp.sp, this.mx, env, n.background = env.nback)
-        thr <- dismo::threshold(test.evaluation)
-        conf <- test.evaluation@confusion[which.max(test.evaluation@t >= thr$spec_sens),]
-      } else {
-        invisible(capture.output(test.evaluation <-dismo::evaluate(test.data, species$background.points[,1:2],
-                                          this.mx, env)))
-        invisible(capture.output(env.test.evaluation <- env.evaluate(temp.sp, this.mx, env, n.background = env.nback)))
-        invisible(capture.output(thr <- dismo::threshold(test.evaluation)))
-        invisible(capture.output(conf <- test.evaluation@confusion[test.evaluation@confusion[which.max(test.evaluation@t >= thr$spec_sens)],]))
-      }
+      invisible(capture.output(model.evaluation <-dismo::evaluate(species$presence.points[,1:2], species$background.points[,1:2],
+                                        this.mx, env)))
+      invisible(capture.output(env.model.evaluation <- env.evaluate(species, this.mx, env, n.background = env.nback)))
 
     }
-  }
 
-  # Test eval for spatially structured data
-  if(is.character(test.prop)){
-    if(test.prop == "block" | test.prop == "checkerboard2"){
-      test.check <- raster::extract(env, test.data)
-      test.data <- test.data[complete.cases(test.check),]
-
-      temp.sp <- species
-      temp.sp$presence.points <- test.data
-      temp.sp$background.points <- test.bg
-
-      if(verbose){
-        test.evaluation <-dismo::evaluate(test.data, test.bg,
-                                          this.mx, env)
-        env.test.evaluation <- env.evaluate(temp.sp, this.mx, env, n.background = env.nback)
-        thr <- dismo::threshold(test.evaluation)
-        conf <- test.evaluation@confusion[which.max(test.evaluation@t >= thr$spec_sens),]
-      } else {
-        invisible(capture.output(test.evaluation <-dismo::evaluate(test.data, test.bg,
-                                          this.mx, env)))
-        invisible(capture.output(env.test.evaluation <- env.evaluate(temp.sp, this.mx, env, n.background = env.nback)))
-        invisible(capture.output(thr <- dismo::threshold(test.evaluation)))
-        invisible(capture.output(conf <- test.evaluation@confusion[test.evaluation@confusion[which.max(test.evaluation@t >= thr$spec_sens)],]))
-      }
-
-    }
-  }
-
-  # Do Raes and ter Steege test for significance.  Turned off if eval == FALSE
-  if(rts.reps > 0){
-
-    message("\nBuilding RTS replicate models...\n")
-
-    # Die if we're not doing randomly withheld test data and RTS reps > 0
-    if(!is.numeric(test.prop)){
-      stop(paste("RTS test can only be conducted with randomly withheld data, and test.prop is set to", test.prop))
-    }
-
-    rts.models <- list()
-
-    rts.geog.training <- c()
-    rts.geog.test <- c()
-    rts.env.training <- c()
-    rts.env.test <- c()
-
-    if (requireNamespace("progress", quietly = TRUE)) {
-      pb <- progress::progress_bar$new(
-        format = " [:bar] :percent eta: :eta",
-        total = rts.reps, clear = FALSE, width= 60)
-    }
-
-    for(i in 1:rts.reps){
-
-      if (requireNamespace("progress", quietly = TRUE)) {
-        pb$tick()
-      }
-
-      if(verbose == TRUE){message(paste("Replicate", i, "of", rts.reps))}
-
-      # Repeating analysis with scrambled pa points and then evaluating models
-      rep.species <- species
-
-      # Mix the points all together
-      allpoints <- rbind(test.data, species$background.points[,1:2], species$presence.points[,1:2])
-
-      # Sample presence points from pool and remove from pool
-      rep.rows <- sample(nrow(allpoints), nrow(species$presence.points))
-      rep.species$presence.points <- allpoints[rep.rows,]
-      allpoints <- allpoints[-rep.rows,]
-
-      # Do the same for test points
-      if(test.prop > 0){
-        test.rows <- sample(nrow(allpoints), nrow(test.data))
-        rep.test.data <- allpoints[test.rows,]
-        allpoints <- allpoints[-test.rows,]
-      }
-
-      # Everything else goes back to the background
-      rep.species$background.points <- allpoints
-
-      rep.species <- add.env(rep.species, env, verbose = verbose)
-
-      rts.df <- rbind(rep.species$presence.points, rep.species$background.points)
-      rts.df$presence <- c(rep(1, nrow(rep.species$presence.points)), rep(0, nrow(rep.species$background.points)))
-
-      # We have to do this to capture the "this is maxent version XXX message".
-      if(verbose){
-        thisrep.mx <- dismo::maxent(env, p = rts.df[rts.df$presence == 1,1:2], a = rts.df[rts.df$presence == 0,1:2], ...)
-        thisrep.model.evaluation <-dismo::evaluate(rep.species$presence.points[,1:2], species$background.points[,1:2],
-                                                   thisrep.mx, env)
-        thisrep.env.model.evaluation <- env.evaluate(rep.species, thisrep.mx, env, n.background = env.nback)
-      } else {
-        invisible(capture.output(thisrep.mx <- dismo::maxent(env, p = rts.df[rts.df$presence == 1,1:2], a = rts.df[rts.df$presence == 0,1:2], ...)))
-        invisible(capture.output(thisrep.model.evaluation <-dismo::evaluate(rep.species$presence.points[,1:2], species$background.points[,1:2],
-                                                   thisrep.mx, env)))
-        invisible(capture.output(thisrep.env.model.evaluation <- env.evaluate(rep.species, thisrep.mx, env, n.background = env.nback)))
-      }
-
-      rts.geog.training[i] <- thisrep.model.evaluation@auc
-      rts.env.training[i] <- thisrep.env.model.evaluation@auc
-
+    # Test eval for randomly withheld data
+    if(is.numeric(test.prop)){
       if(test.prop > 0 & test.prop < 1){
-        temp.sp <- rep.species
-        temp.sp$presence.points <- rep.test.data
+        test.check <- raster::extract(env, test.data)
+        test.data <- test.data[complete.cases(test.check),]
+
+        temp.sp <- species
+        temp.sp$presence.points <- test.data
 
         if(verbose){
-          thisrep.test.evaluation <-dismo::evaluate(rep.test.data, rep.species$background.points[,1:2],
-                                                    thisrep.mx, env)
-          thisrep.env.test.evaluation <- env.evaluate(temp.sp, thisrep.mx, env, n.background = env.nback)
+          test.evaluation <-dismo::evaluate(test.data, species$background.points[,1:2],
+                                            this.mx, env)
+          env.test.evaluation <- env.evaluate(temp.sp, this.mx, env, n.background = env.nback)
+          thr <- dismo::threshold(test.evaluation)
+          conf <- test.evaluation@confusion[which.max(test.evaluation@t >= thr$spec_sens),]
         } else {
-          invisible(capture.output(thisrep.test.evaluation <-dismo::evaluate(rep.test.data, rep.species$background.points[,1:2],
-                                                    thisrep.mx, env)))
-          invisible(capture.output(thisrep.env.test.evaluation <- env.evaluate(temp.sp, thisrep.mx, env, n.background = env.nback)))
+          invisible(capture.output(test.evaluation <-dismo::evaluate(test.data, species$background.points[,1:2],
+                                            this.mx, env)))
+          invisible(capture.output(env.test.evaluation <- env.evaluate(temp.sp, this.mx, env, n.background = env.nback)))
+          invisible(capture.output(thr <- dismo::threshold(test.evaluation)))
+          invisible(capture.output(conf <- test.evaluation@confusion[test.evaluation@confusion[which.max(test.evaluation@t >= thr$spec_sens)],]))
         }
 
-        rts.geog.test[i] <- thisrep.test.evaluation@auc
-        rts.env.test[i] <- thisrep.env.test.evaluation@auc
       }
-      rts.models[[paste0("rep.",i)]] <- list(model = thisrep.mx,
-                                             training.evaluation = thisrep.model.evaluation,
-                                             env.training.evaluation = thisrep.env.model.evaluation,
-                                             test.evaluation = thisrep.test.evaluation,
-                                             env.test.evaluation = thisrep.env.test.evaluation)
     }
 
-    # Reps are all run now, time to package it all up
+    # Test eval for spatially structured data
+    if(is.character(test.prop)){
+      if(test.prop == "block" | test.prop == "checkerboard2"){
+        test.check <- raster::extract(env, test.data)
+        test.data <- test.data[complete.cases(test.check),]
 
-    # Calculating p values
-    rts.geog.training.pvalue = mean(rts.geog.training > model.evaluation@auc)
-    rts.env.training.pvalue = mean(rts.env.training > env.model.evaluation@auc)
-    if(test.prop > 0){
-      rts.geog.test.pvalue <- mean(rts.geog.test > test.evaluation@auc)
-      rts.env.test.pvalue <- mean(rts.env.test > env.test.evaluation@auc)
-    } else {
-      rts.geog.test.pvalue <- NA
-      rts.env.test.pvalue <- NA
+        temp.sp <- species
+        temp.sp$presence.points <- test.data
+        temp.sp$background.points <- test.bg
+
+        if(verbose){
+          test.evaluation <-dismo::evaluate(test.data, test.bg,
+                                            this.mx, env)
+          env.test.evaluation <- env.evaluate(temp.sp, this.mx, env, n.background = env.nback)
+          thr <- dismo::threshold(test.evaluation)
+          conf <- test.evaluation@confusion[which.max(test.evaluation@t >= thr$spec_sens),]
+        } else {
+          invisible(capture.output(test.evaluation <-dismo::evaluate(test.data, test.bg,
+                                            this.mx, env)))
+          invisible(capture.output(env.test.evaluation <- env.evaluate(temp.sp, this.mx, env, n.background = env.nback)))
+          invisible(capture.output(thr <- dismo::threshold(test.evaluation)))
+          invisible(capture.output(conf <- test.evaluation@confusion[test.evaluation@confusion[which.max(test.evaluation@t >= thr$spec_sens)],]))
+        }
+
+      }
     }
 
-    # Making plots
-    training.plot <- qplot(rts.geog.training, geom = "histogram", fill = "density", alpha = 0.5) +
-      geom_vline(xintercept = model.evaluation@auc, linetype = "longdash") +
-      xlim(0,1) + guides(fill = FALSE, alpha = FALSE) + xlab("AUC") +
-      ggtitle(paste("Model performance in geographic space on training data")) +
-      theme(plot.title = element_text(hjust = 0.5))
+    # Do Raes and ter Steege test for significance.  Turned off if eval == FALSE
+    if(rts.reps > 0){
 
-    env.training.plot <- qplot(rts.env.training, geom = "histogram", fill = "density", alpha = 0.5) +
-      geom_vline(xintercept = env.model.evaluation@auc, linetype = "longdash") +
-      xlim(0,1) + guides(fill = FALSE, alpha = FALSE) + xlab("AUC") +
-      ggtitle(paste("Model performance in environmental space on training data")) +
-      theme(plot.title = element_text(hjust = 0.5))
+      message("\nBuilding RTS replicate models...\n")
 
-    # Make plots for test AUC distributions
-    if(test.prop > 0){
-      test.plot <- qplot(rts.geog.test, geom = "histogram", fill = "density", alpha = 0.5) +
-        geom_vline(xintercept = test.evaluation@auc, linetype = "longdash") +
+      # Die if we're not doing randomly withheld test data and RTS reps > 0
+      if(!is.numeric(test.prop)){
+        stop(paste("RTS test can only be conducted with randomly withheld data, and test.prop is set to", test.prop))
+      }
+
+      rts.models <- list()
+
+      rts.geog.training <- c()
+      rts.geog.test <- c()
+      rts.env.training <- c()
+      rts.env.test <- c()
+
+      if (requireNamespace("progress", quietly = TRUE)) {
+        pb <- progress::progress_bar$new(
+          format = " [:bar] :percent eta: :eta",
+          total = rts.reps, clear = FALSE, width= 60)
+      }
+
+      for(i in 1:rts.reps){
+
+        if (requireNamespace("progress", quietly = TRUE)) {
+          pb$tick()
+        }
+
+        if(verbose == TRUE){message(paste("Replicate", i, "of", rts.reps))}
+
+        # Repeating analysis with scrambled pa points and then evaluating models
+        rep.species <- species
+
+        # Mix the points all together
+        allpoints <- rbind(test.data, species$background.points[,1:2], species$presence.points[,1:2])
+
+        # Sample presence points from pool and remove from pool
+        rep.rows <- sample(nrow(allpoints), nrow(species$presence.points))
+        rep.species$presence.points <- allpoints[rep.rows,]
+        allpoints <- allpoints[-rep.rows,]
+
+        # Do the same for test points
+        if(test.prop > 0){
+          test.rows <- sample(nrow(allpoints), nrow(test.data))
+          rep.test.data <- allpoints[test.rows,]
+          allpoints <- allpoints[-test.rows,]
+        }
+
+        # Everything else goes back to the background
+        rep.species$background.points <- allpoints
+
+        rep.species <- add.env(rep.species, env, verbose = verbose)
+
+        rts.df <- rbind(rep.species$presence.points, rep.species$background.points)
+        rts.df$presence <- c(rep(1, nrow(rep.species$presence.points)), rep(0, nrow(rep.species$background.points)))
+
+        # We have to do this to capture the "this is maxent version XXX message".
+        if(verbose){
+          thisrep.mx <- dismo::maxent(env, p = rts.df[rts.df$presence == 1,1:2], a = rts.df[rts.df$presence == 0,1:2], ...)
+          thisrep.model.evaluation <-dismo::evaluate(rep.species$presence.points[,1:2], species$background.points[,1:2],
+                                                    thisrep.mx, env)
+          thisrep.env.model.evaluation <- env.evaluate(rep.species, thisrep.mx, env, n.background = env.nback)
+        } else {
+          invisible(capture.output(thisrep.mx <- dismo::maxent(env, p = rts.df[rts.df$presence == 1,1:2], a = rts.df[rts.df$presence == 0,1:2], ...)))
+          invisible(capture.output(thisrep.model.evaluation <-dismo::evaluate(rep.species$presence.points[,1:2], species$background.points[,1:2],
+                                                    thisrep.mx, env)))
+          invisible(capture.output(thisrep.env.model.evaluation <- env.evaluate(rep.species, thisrep.mx, env, n.background = env.nback)))
+        }
+
+        rts.geog.training[i] <- thisrep.model.evaluation@auc
+        rts.env.training[i] <- thisrep.env.model.evaluation@auc
+
+        if(test.prop > 0 & test.prop < 1){
+          temp.sp <- rep.species
+          temp.sp$presence.points <- rep.test.data
+
+          if(verbose){
+            thisrep.test.evaluation <-dismo::evaluate(rep.test.data, rep.species$background.points[,1:2],
+                                                      thisrep.mx, env)
+            thisrep.env.test.evaluation <- env.evaluate(temp.sp, thisrep.mx, env, n.background = env.nback)
+          } else {
+            invisible(capture.output(thisrep.test.evaluation <-dismo::evaluate(rep.test.data, rep.species$background.points[,1:2],
+                                                      thisrep.mx, env)))
+            invisible(capture.output(thisrep.env.test.evaluation <- env.evaluate(temp.sp, thisrep.mx, env, n.background = env.nback)))
+          }
+
+          rts.geog.test[i] <- thisrep.test.evaluation@auc
+          rts.env.test[i] <- thisrep.env.test.evaluation@auc
+        }
+        rts.models[[paste0("rep.",i)]] <- list(model = thisrep.mx,
+                                              training.evaluation = thisrep.model.evaluation,
+                                              env.training.evaluation = thisrep.env.model.evaluation,
+                                              test.evaluation = thisrep.test.evaluation,
+                                              env.test.evaluation = thisrep.env.test.evaluation)
+      }
+
+      # Reps are all run now, time to package it all up
+
+      # Calculating p values
+      rts.geog.training.pvalue = mean(rts.geog.training > model.evaluation@auc)
+      rts.env.training.pvalue = mean(rts.env.training > env.model.evaluation@auc)
+      if(test.prop > 0){
+        rts.geog.test.pvalue <- mean(rts.geog.test > test.evaluation@auc)
+        rts.env.test.pvalue <- mean(rts.env.test > env.test.evaluation@auc)
+      } else {
+        rts.geog.test.pvalue <- NA
+        rts.env.test.pvalue <- NA
+      }
+
+      # Making plots
+      training.plot <- qplot(rts.geog.training, geom = "histogram", fill = "density", alpha = 0.5) +
+        geom_vline(xintercept = model.evaluation@auc, linetype = "longdash") +
         xlim(0,1) + guides(fill = FALSE, alpha = FALSE) + xlab("AUC") +
-        ggtitle(paste("Model performance in geographic space on test data")) +
+        ggtitle(paste("Model performance in geographic space on training data")) +
         theme(plot.title = element_text(hjust = 0.5))
 
-      env.test.plot <- qplot(rts.env.test, geom = "histogram", fill = "density", alpha = 0.5) +
-        geom_vline(xintercept = env.test.evaluation@auc, linetype = "longdash") +
+      env.training.plot <- qplot(rts.env.training, geom = "histogram", fill = "density", alpha = 0.5) +
+        geom_vline(xintercept = env.model.evaluation@auc, linetype = "longdash") +
         xlim(0,1) + guides(fill = FALSE, alpha = FALSE) + xlab("AUC") +
-        ggtitle(paste("Model performance in environmental space on test data")) +
+        ggtitle(paste("Model performance in environmental space on training data")) +
         theme(plot.title = element_text(hjust = 0.5))
-    } else {
-      test.plot <- NA
-      env.test.plot <- NA
+
+      # Make plots for test AUC distributions
+      if(test.prop > 0){
+        test.plot <- qplot(rts.geog.test, geom = "histogram", fill = "density", alpha = 0.5) +
+          geom_vline(xintercept = test.evaluation@auc, linetype = "longdash") +
+          xlim(0,1) + guides(fill = FALSE, alpha = FALSE) + xlab("AUC") +
+          ggtitle(paste("Model performance in geographic space on test data")) +
+          theme(plot.title = element_text(hjust = 0.5))
+
+        env.test.plot <- qplot(rts.env.test, geom = "histogram", fill = "density", alpha = 0.5) +
+          geom_vline(xintercept = env.test.evaluation@auc, linetype = "longdash") +
+          xlim(0,1) + guides(fill = FALSE, alpha = FALSE) + xlab("AUC") +
+          ggtitle(paste("Model performance in environmental space on test data")) +
+          theme(plot.title = element_text(hjust = 0.5))
+      } else {
+        test.plot <- NA
+        env.test.plot <- NA
+      }
+
+      rts.pvalues = list(rts.geog.training.pvalue = rts.geog.training.pvalue,
+                        rts.env.training.pvalue = rts.env.training.pvalue,
+                        rts.geog.test.pvalue = rts.geog.test.pvalue,
+                        rts.env.test.pvalue = rts.env.test.pvalue)
+      rts.distributions = list(rts.geog.training = rts.geog.training,
+                              rts.env.training = rts.env.training,
+                              rts.geog.test = rts.geog.test,
+                              rts.env.test = rts.env.test)
+      rts.plots = list(geog.training.plot = training.plot,
+                      env.training.plot = env.training.plot,
+                      geog.test.plot = test.plot,
+                      env.test.plot = env.test.plot)
+
+      rts.test <- list(rts.models = rts.models,
+                      rts.pvalues = rts.pvalues,
+                      rts.distributions = rts.distributions,
+                      rts.plots = rts.plots,
+                      rts.nreps = rts.reps)
     }
-
-    rts.pvalues = list(rts.geog.training.pvalue = rts.geog.training.pvalue,
-                       rts.env.training.pvalue = rts.env.training.pvalue,
-                       rts.geog.test.pvalue = rts.geog.test.pvalue,
-                       rts.env.test.pvalue = rts.env.test.pvalue)
-    rts.distributions = list(rts.geog.training = rts.geog.training,
-                             rts.env.training = rts.env.training,
-                             rts.geog.test = rts.geog.test,
-                             rts.env.test = rts.env.test)
-    rts.plots = list(geog.training.plot = training.plot,
-                     env.training.plot = env.training.plot,
-                     geog.test.plot = test.plot,
-                     env.test.plot = env.test.plot)
-
-    rts.test <- list(rts.models = rts.models,
-                     rts.pvalues = rts.pvalues,
-                     rts.distributions = rts.distributions,
-                     rts.plots = rts.plots,
-                     rts.nreps = rts.reps)
   }
-
-
   output <- list(species.name = species$species.name,
                  analysis.df = analysis.df,
                  test.data = test.data,

@@ -48,6 +48,8 @@ enmtools.glm <- function(species, env, f = NULL, test.prop = 0, eval = TRUE, nba
   test.evaluation <- NA
   env.test.evaluation <- NA
   rts.test <- NA
+  conf <- NA
+  thr <- NA
 
   # Code for randomly withheld test data
   if(is.numeric(test.prop)){

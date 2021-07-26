@@ -56,7 +56,8 @@ enmtools.gam <- function(species, env, f = NULL, test.prop = 0, k = 4, nback = 1
   test.evaluation <- NA
   env.test.evaluation <- NA
   rts.test <- NA
-
+  conf <- NA
+  thr <- NA
 
   # Code for randomly withheld test data
   if(is.numeric(test.prop)){
@@ -69,13 +70,18 @@ enmtools.gam <- function(species, env, f = NULL, test.prop = 0, k = 4, nback = 1
 
   # Code for spatially structured test data
   if(is.character(test.prop)){
-    if(test.prop == "block"){
+    if(test.prop == "block" | test.prop == "checkerboard2"){
       if(is.na(corner)){
         corner <- ceiling(runif(1, 0, 4))
       } else if(corner < 1 | corner > 4){
         stop("corner should be an integer from 1 to 4!")
       }
-      test.inds <- get.block(species$presence.points, species$background.points)
+      if(test.prop == "block"){
+        test.inds <- get.block(species$presence.points, species$background.points)
+      }
+      if(test.prop == "checkerboard2"){
+        test.inds <- get.checkerboard2(species$presence.points, bias, species$background.points, c(2,2))
+      }
       test.bg.inds <- which(test.inds$bg.grp == corner)
       test.inds <- which(test.inds$occ.grp == corner)
       test.data <- species$presence.points[test.inds,]
@@ -137,6 +143,8 @@ enmtools.gam <- function(species, env, f = NULL, test.prop = 0, k = 4, nback = 1
       test.data <- test.data[complete.cases(test.check),]
       test.evaluation <-dismo::evaluate(test.data, species$background.points[,1:2],
                                         this.gam, env)
+      thr <- dismo::threshold(test.evaluation)
+      conf <- test.evaluation@confusion[which.max(test.evaluation@t >= thr$spec_sens),]
       temp.sp <- species
       temp.sp$presence.points <- test.data
       env.test.evaluation <- env.evaluate(temp.sp, this.gam, env, n.background = env.nback)
@@ -145,11 +153,13 @@ enmtools.gam <- function(species, env, f = NULL, test.prop = 0, k = 4, nback = 1
 
   # Test eval for spatially structured data
   if(is.character(test.prop)){
-    if(test.prop == "block"){
+    if(test.prop == "block" | test.prop == "checkerboard2"){
       test.check <- raster::extract(env, test.data)
       test.data <- test.data[complete.cases(test.check),]
       test.evaluation <-dismo::evaluate(test.data, test.bg,
                                         this.gam, env)
+      thr <- dismo::threshold(test.evaluation)
+      conf <- test.evaluation@confusion[which.max(test.evaluation@t >= thr$spec_sens),]                                  
       temp.sp <- species
       temp.sp$presence.points <- test.data
       temp.sp$background.points <- test.bg
@@ -313,6 +323,8 @@ enmtools.gam <- function(species, env, f = NULL, test.prop = 0, k = 4, nback = 1
                  test.data = test.data,
                  test.prop = test.prop,
                  model = this.gam,
+                 conf = conf,
+                 thr = thr,
                  training.evaluation = model.evaluation,
                  test.evaluation = test.evaluation,
                  env.training.evaluation = env.model.evaluation,
