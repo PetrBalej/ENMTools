@@ -74,8 +74,22 @@ enmtools.glm <- function(species, env, f = NULL, test.prop = 0, eval = TRUE, nba
       if(test.prop == "checkerboard2"){
         test.inds <- get.checkerboard2(species$presence.points, bias, species$background.points, c(2,2))
       }
-      test.bg.inds <- which(test.inds$bg.grp == corner)
-      test.inds <- which(test.inds$occ.grp == corner)
+
+      # check empty bin for selected corner
+      test.bg.inds.check <- which(test.inds$bg.grp == corner)
+      test.inds.check <- which(test.inds$occ.grp == corner)
+
+      if(length(test.bg.inds.check) < 1 | length(test.inds.check) < 1) {
+            corners <- 1:4
+            corners <- corners[-corner]
+            # select another bin used before
+            test.bg.inds <- which(test.inds$bg.grp == corners[1])
+            test.inds <- which(test.inds$occ.grp == corners[1])
+      } else {
+            test.bg.inds <- which(test.inds$bg.grp == corner)
+            test.inds <- which(test.inds$occ.grp == corner)
+      }
+
       test.data <- species$presence.points[test.inds,]
       test.bg <- species$background.points[test.bg.inds,]
       species$presence.points <- species$presence.points[-test.inds,]
