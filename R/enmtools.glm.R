@@ -61,6 +61,8 @@ enmtools.glm <- function(species, env, f = NULL, test.prop = 0, eval = TRUE, nba
   }
 
   # Code for spatially structured test data
+  # Mohl bych postupně otestovat vzájemně všechny 4 kombinace roh:ostatní, ale dělá se jen jedna. 
+  # test.data/test.bg a jejich následné vyčlenění z species$presence.points a species$background.points počítá jen s jedním cyklem - neefektivní...
   if(is.character(test.prop)){
     if(test.prop == "block" | test.prop == "checkerboard2"){
       if(is.na(corner)){
@@ -72,7 +74,11 @@ enmtools.glm <- function(species, env, f = NULL, test.prop = 0, eval = TRUE, nba
         test.inds <- get.block(species$presence.points, species$background.points)
       }
       if(test.prop == "checkerboard2"){
-        test.inds <- get.checkerboard2(species$presence.points, bias, species$background.points, c(2,2))
+        bg.ch2 <- bias
+        if(!any(c("RasterLayer", "RasterStack", "raster", "RasterBrick") %in% class(bg.ch2))){
+          bg.ch2 <- env
+        }
+        test.inds <- get.checkerboard2(species$presence.points, bg.ch2, species$background.points, c(2,2))
       }
 
       # check empty bin for selected corner

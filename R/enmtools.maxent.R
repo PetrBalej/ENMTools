@@ -68,7 +68,11 @@ enmtools.maxent <- function(species, env, test.prop = 0, eval = TRUE, nback = 10
         test.inds <- get.block(species$presence.points, species$background.points)
       }
       if(test.prop == "checkerboard2"){
-        test.inds <- get.checkerboard2(species$presence.points, bias, species$background.points, c(2,2))
+        bg.ch2 <- bias
+        if(!any(c("RasterLayer", "RasterStack", "raster", "RasterBrick") %in% class(bg.ch2))){
+          bg.ch2 <- env
+        }
+        test.inds <- get.checkerboard2(species$presence.points, bg.ch2, species$background.points, c(2,2))
       }
       test.bg.inds <- which(test.inds$bg.grp == corner)
       test.inds <- which(test.inds$occ.grp == corner)
