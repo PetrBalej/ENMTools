@@ -33,7 +33,7 @@ enmtools.maxent <- function(species, env, test.prop = 0, eval = TRUE, nback = 10
   check.packages("rJava")
 
   resolution <- res(env[[1]])[1]
-  aggregation.factor <- list("10000" = c(1,1), "5000" = c(2,2), "2000" = c(5,5), "1000" = c(10,10), "500" = c(20,20))
+  aggregation.factor <- list("10000" = c(2,2), "5000" = c(2,2), "2000" = c(5,5), "1000" = c(10,10), "500" = c(20,20))
   
   notes <- NULL
 
@@ -77,6 +77,22 @@ enmtools.maxent <- function(species, env, test.prop = 0, eval = TRUE, nback = 10
         }
         test.inds <- get.checkerboard2(species$presence.points, bg.ch2, species$background.points, aggregation.factor[[as.character(resolution)]])
       }
+
+      # check empty bin for selected corner
+      test.bg.inds.check <- which(test.inds$bg.grp == corner)
+      test.inds.check <- which(test.inds$occ.grp == corner)
+
+      if(length(test.bg.inds.check) < 1 | length(test.inds.check) < 1) {
+            corners <- 1:4
+            corners <- corners[-corner]
+            # select another bin used before
+            test.bg.inds <- which(test.inds$bg.grp == corners[1])
+            test.inds <- which(test.inds$occ.grp == corners[1])
+      } else {
+            test.bg.inds <- which(test.inds$bg.grp == corner)
+            test.inds <- which(test.inds$occ.grp == corner)
+      }
+
       test.bg.inds <- which(test.inds$bg.grp == corner)
       test.inds <- which(test.inds$occ.grp == corner)
       test.data <- species$presence.points[test.inds,]
