@@ -29,6 +29,9 @@
 
 enmtools.glm <- function(species, env, f = NULL, test.prop = 0, eval = TRUE, nback = 1000, env.nback = 10000, report = NULL, overwrite = FALSE, rts.reps = 0, weights = "equal", bg.source = "default",  verbose = FALSE, clamp = TRUE, corner = NA, bias = NA, ...){
 
+  resolution <- res(env[[1]])[1]
+  aggregation.factor <- list("10000" = c(1,1), "5000" = c(2,2), "2000" = c(5,5), "1000" = c(10,10), "500" = c(20,20))
+  
   notes <- NULL
 
   species <- check.bg(species, env, nback = nback, bg.source = bg.source, verbose = verbose, bias = bias)
@@ -78,7 +81,7 @@ enmtools.glm <- function(species, env, f = NULL, test.prop = 0, eval = TRUE, nba
         if(!any(c("RasterLayer", "RasterStack", "raster", "RasterBrick") %in% class(bg.ch2))){
           bg.ch2 <- env
         }
-        test.inds <- get.checkerboard2(species$presence.points, bg.ch2, species$background.points, c(2,2))
+        test.inds <- get.checkerboard2(species$presence.points, bg.ch2, species$background.points, aggregation.factor[[as.character(resolution)]])
       }
 
       # check empty bin for selected corner

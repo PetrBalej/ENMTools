@@ -32,6 +32,9 @@ enmtools.maxent <- function(species, env, test.prop = 0, eval = TRUE, nback = 10
 
   check.packages("rJava")
 
+  resolution <- res(env[[1]])[1]
+  aggregation.factor <- list("10000" = c(1,1), "5000" = c(2,2), "2000" = c(5,5), "1000" = c(10,10), "500" = c(20,20))
+  
   notes <- NULL
 
   species <- check.bg(species, env, nback = nback, bg.source = bg.source, verbose = verbose, bias = bias)
@@ -72,7 +75,7 @@ enmtools.maxent <- function(species, env, test.prop = 0, eval = TRUE, nback = 10
         if(!any(c("RasterLayer", "RasterStack", "raster", "RasterBrick") %in% class(bg.ch2))){
           bg.ch2 <- env
         }
-        test.inds <- get.checkerboard2(species$presence.points, bg.ch2, species$background.points, c(2,2))
+        test.inds <- get.checkerboard2(species$presence.points, bg.ch2, species$background.points, aggregation.factor[[as.character(resolution)]])
       }
       test.bg.inds <- which(test.inds$bg.grp == corner)
       test.inds <- which(test.inds$occ.grp == corner)
