@@ -30,7 +30,7 @@
 enmtools.glm <- function(species, env, f = NULL, test.prop = 0, eval = TRUE, nback = 1000, env.nback = 10000, report = NULL, overwrite = FALSE, rts.reps = 0, weights = "equal", bg.source = "default",  verbose = FALSE, clamp = TRUE, corner = NA, bias = NA, ...){
 
   resolution <- res(env[[1]])[1]
-  aggregation.factor <- list("10000" = c(2,2), "5000" = c(2,2), "2000" = c(5,5), "1000" = c(10,10), "500" = c(20,20))
+  aggregation.factor <- list("10000" = c(1,2), "5000" = c(2,2), "2000" = c(5,2), "1000" = c(10,2), "500" = c(20,2))
   
   notes <- NULL
 

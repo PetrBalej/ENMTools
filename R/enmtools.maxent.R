@@ -33,7 +33,7 @@ enmtools.maxent <- function(species, env, test.prop = 0, eval = TRUE, nback = 10
   check.packages("rJava")
 
   resolution <- res(env[[1]])[1]
-  aggregation.factor <- list("10000" = c(2,2), "5000" = c(2,2), "2000" = c(5,5), "1000" = c(10,10), "500" = c(20,20))
+  aggregation.factor <- list("10000" = c(1,2), "5000" = c(2,2), "2000" = c(5,2), "1000" = c(10,2), "500" = c(20,2))
   
   notes <- NULL
 
