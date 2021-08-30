@@ -126,23 +126,23 @@ enmtools.maxent <- function(species, env, test.prop = 0, eval = TRUE, nback = 10
   # Clamping and getting a diff layer
   clamping.strength <- NA
 
-  if(eval == TRUE){
-    if(clamp == TRUE){
-      # Adding env (skipped for MX otherwise)
-      this.df <- as.data.frame(extract(env, species$presence.points))
+  if(clamp == TRUE){
+    # Adding env (skipped for MX otherwise)
+    this.df <- as.data.frame(extract(env, species$presence.points))
 
-      env <- clamp.env(this.df, env)
+    env <- clamp.env(this.df, env)
 
-      if(verbose){
-        clamped.suitability <- predict(env, this.mx, type = "response")
-      } else {
-        invisible(capture.output(clamped.suitability <- predict(env, this.mx, type = "response")))
-      }
-
-      clamping.strength <- clamped.suitability - suitability
-      suitability <- clamped.suitability
+    if(verbose){
+      clamped.suitability <- predict(env, this.mx, type = "response")
+    } else {
+      invisible(capture.output(clamped.suitability <- predict(env, this.mx, type = "response")))
     }
 
+    clamping.strength <- clamped.suitability - suitability
+    suitability <- clamped.suitability
+  }
+  
+  if(eval == TRUE){
     if(verbose){
       model.evaluation <-dismo::evaluate(species$presence.points[,1:2], species$background.points[,1:2],
                                         this.mx, env)
